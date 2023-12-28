@@ -1,0 +1,28 @@
+[*]
+[*] GTKWave Analyzer v3.3.115 (w)1999-2023 BSI
+[*] Mon Oct 30 10:23:42 2023
+[*]
+[dumpfile] "/home/jml/Documents/src/cod5-phase2/tangnano20k/sim/cod5_tb.vcd"
+[dumpfile_mtime] "Mon Oct 30 10:21:14 2023"
+[dumpfile_size] 616
+[savefile] "/home/jml/Documents/src/cod5-phase2/tangnano20k/sim/config.gtkw"
+[timestart] 0
+[size] 1155 600
+[pos] -1 -1
+*-14.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb.
+[treeopen] tb.dut.
+[sst_width] 269
+[signals_width] 182
+[sst_expanded] 1
+[sst_vpaned_height] 157
+@28
+tb.dut.u1_adder.I_do_add[0]
+@22
+tb.dut.I_alu_function[3:0]
+tb.dut.I_a_in[31:0]
+tb.dut.I_b_in[31:0]
+@23
+tb.dut.O_c_alu[31:0]
+[pattern_trace] 1
+[pattern_trace] 0

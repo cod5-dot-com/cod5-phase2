@@ -1,0 +1,13 @@
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/jml/Documents/src/cod5-phase2/artys7_50/vivado/vivado.sim/sim_1/impl/func/xsim/cod5_top_func_impl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module c5_cpu
+INFO: [VRFC 10-311] analyzing module c5_mem_ctrl
+INFO: [VRFC 10-311] analyzing module c5_mult
+INFO: [VRFC 10-311] analyzing module c5_pc_next
+INFO: [VRFC 10-311] analyzing module c5_ram
+INFO: [VRFC 10-311] analyzing module c5_reg_bank
+INFO: [VRFC 10-311] analyzing module c5_shifter
+INFO: [VRFC 10-311] analyzing module clk_wiz_0_clk_wiz
+INFO: [VRFC 10-311] analyzing module cod5_top
+INFO: [VRFC 10-311] analyzing module soc
+INFO: [VRFC 10-311] analyzing module uart
+INFO: [VRFC 10-311] analyzing module glbl

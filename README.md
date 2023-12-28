@@ -1,74 +1,127 @@
-# cod5-phase1
+# COD5 phase 2
 
-See individual files for license.
+The public domain computer
 
-## [Cod5 computer][1] first phase
+#### common 
 
-- Phase 1 : Proof of concept, design the cpu and 
-[GPDI][7] gpu using existing Open Source code and existing board.
-
-- Phase 2 : Only public domain code
-
-- Phase 3 : Public domain board design and maybe ASIC design.
-
-
-## Current version
-
-The current version is mostly based on the great work of [hdl-util][4]
-with an MIT license.
-
-## Installation
-
-We use the Arduino [MKR Vidor 4000][8] board under Debian 10 host.
 
 ```
-sudo apt install build-essential git python3-venv python3-pip
 
-pip3 install hdlmake
+sudo apt install build-essential git curl libtinfo5 iverilog gtkwave
+
+firefox https://github.com/trabucayre/openFPGALoader/releases/download/v0.11.0/ubtuntu22.04-openFPGALoader.tgz
+
+(cd /; sudo tar -xvzf ~/Downloads/ubtuntu22.04-openFPGALoader.tgz)
+
+sudo apt install gcc-mipsel-linux-gnu
+
+
+mkdir -p ~/Documents/src
+cd ~/Documents/src
+git clone https://github.com/cod5-dot-com/cod5-phase2.git
+cd cod5-phase2
+cd common
+make
+cd ..
+
+
+
 ```
 
-Install [Quartus][10].
+#### Arty S7-50
 
-Install [Arduino IDE][11].
-
-Then install [Arduino cli][16] :
 ```
+
+firefox https://www.xilinx.com/support/download/index.html/content/xilinx/en/downloadNav/vivado-design-tools/2023-2.html
+
+sudo mkdir /tools
+sudo chmod a+w /tools
+
+bash FPGAs_AdaptiveSoCs_Unified_2023.2_1013_2256_Lin64.bin
+
+sudo /tools/Xilinx/Vivado/2023.2/data/xicom/cable_drivers/lin64/install_script/install_drivers/install_drivers
+
+```
+
+### Tang Nano 20k
+
+```
+cd ~/Downloads/
+firefox https://www.gowinsemi.com/en/support/download_eda/
+tar -xvf Gowin_V1.9.9Beta-4_Education.tar.gz 
+mv IDE ~/Documents/src/
+
+```
+
+### ULX3S
+
+```
+
+firefox https://www.latticesemi.com/en/Products/DesignSoftwareAndIP/FPGAandLDS/LatticeDiamond#linux
+
+firefox https://www.latticesemi.com/Support/Licensing#requestDiamond
+
+sudo apt install libftdi-dev alien
+
+sudo alien --scripts diamond_3_13-base-56-2-x86_64-linux.rpm
+
+sudo dpkg -i diamond-3-13-base_3.13-57_amd64.deb
+
+sudo cp license.dat /usr/local/diamond/3.13/license/
+
+/bin/bash /usr/local/diamond/3.13/bin/lin64/diamond
+
+ 
+```
+
+### GateMate
+
+```
+firefox https://colognechip.com/mygatemate/ 
+ 
+cd ~/Documents/src
+
+tar -xvzf ~/Downloads/cc-toolchain-linux.tar.gz
+
+```
+
+### MKR Vidor 4000
+
+```
+firefox https://www.intel.com/content/www/us/en/software-kit/785085/intel-quartus-prime-lite-edition-design-software-version-22-1-2-for-linux.html
+
+cd ~/Downloads/
+
+tar -xvf Quartus-lite-22.1std.2.922-linux.tar
+./setup.sh
+
+mkdir -p ~/.local/bin
 curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=~/.local/bin sh
 
-arduino-cli core install arduino:samd_beta
-```
+echo install Arduino IDE and configure for MKR Vidor 4000
+firefox https://www.arduino.cc/en/software
 
-***
-```
-pip install -U apio
-apio install oss-cad-suite
 
 ```
-***
 
-***
+--
 
-[1]: https://cod5.com
-[2]: http://plasmacpu.no-ip.org/
-[3]: https://www.fpga4fun.com/HDMI.html
-[4]: https://github.com/hdl-util/hdmi
-[5]: https://github.com/hdl-util/hdmi-demo
-[6]: https://ulx3s.github.io/
-[7]: http://lists.inf.ethz.ch/pipermail/oberon/2019/013413.html
-[8]: https://store.arduino.cc/arduino-mkr-vidor-4000
-[9]: https://radiona.org/ulx3s
-[10]: https://fpgasoftware.intel.com/?edition=lite
-[11]: https://www.arduino.cc/en/software
-[12]: https://github.com/wd5gnr/VidorFPGA
-[13]: https://forum.arduino.cc/t/using-duinofun-mini-usb-shield-with-elegoo-atmega-2560-r3/523822/3
-[14]: https://github.com/felis/USB_Host_Shield_2.0
-[15]: http://asciimath.org
-[16]: https://github.com/arduino/arduino-cli
-[17]: https://github.com/google/skywater-pdk
-[18]: https://inst.eecs.berkeley.edu/~cs250/fa20/labs/lab1/
-[19]: https://cdn.opencores.org/downloads/wbspec_b3.pdf
-[20]: http://www.sugawara-systems.com/opencores/plasma.htm
-[21]: https://github.com/inferno-os/inferno-os
+https://www.colognechip.com/gatemate-start/
+https://github.com/ak-fau/gmm7550
 
-***
+https://docs.arduino.cc/hardware/mkr-vidor-4000
+https://www.intel.com/content/www/us/en/products/details/fpga/development-tools/quartus-prime/resource.html
 
+https://wiki.sipeed.com/hardware/en/tang/tang-nano-20k/nano-20k.html
+https://www.reddit.com/r/GowinFPGA/
+https://www.gowinsemi.com/en/support/home/
+
+https://digilent.com/reference/programmable-logic/arty-s7/start
+https://www.xilinx.com/products/design-tools/vivado.html
+
+https://radiona.org/ulx3s/
+https://www.latticesemi.com/en/Products/DesignSoftwareAndIP/FPGAandLDS/LatticeDiamond
+
+
+https://www.transcend-info.com/support/faq-296
+https://blogs.synopsys.com/vip-central/2019/02/27/ddr5-4-3-2-how-memory-density-and-speed-increased-with-each-generation-of-ddr/

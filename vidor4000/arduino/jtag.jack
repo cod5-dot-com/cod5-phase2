@@ -1,0 +1,516 @@
+/*
+ *          MMXXIII December 19 PUBLIC DOMAIN by O'ksi'D
+ *
+ *        The authors disclaim copyright to this software.
+ *
+ * Anyone is free to copy, merge, modify, publish, use, compile, sell,
+ * or distribute this software, either in source code form or as a
+ * compiled binary, for any purpose, commercial or non-commercial, and
+ * by any means.
+ *
+ * Anyone is free to create, communicate to the public, use, sell,
+ * repair, modify, test, distribute or configure hardware in finished
+ * or intermediate form, whether by manufacture, assembly, compiling,
+ * processing, loading or applying this software or another hardware or
+ * otherwise.
+ *
+ * THE SOFTWARE AND/OR HARDWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY
+ * OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+ * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT OF ANY PATENT, COPYRIGHT, TRADE SECRET OR OTHER
+ * PROPRIETARY RIGHT.  IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE AND/OR HARDWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
+ * AND/OR HARDWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+ */
+
+/* REFERENCES:
+ * https://www.xjtag.com/about-jtag/jtag-a-technical-overview/
+ * https://www.intel.com/content/dam/altera-www/global/en_US/others/literature/an/wpjrunner.zip
+ */
+
+
+class jtag 
+{
+static int tap_state;
+static int jtag_id;
+static int jtag_n_slaves;
+static int jtag_slave_bits;
+static int jtag_vir_size;
+static int jtag_last_vir;
+
+const int TEST_LOGIC_RESET := 1;
+const int RUN_TEST_IDLE := 2;
+const int SELECT_DR_SCAN := 3;
+const int CAPTURE_DR := 4;
+const int SHIFT_DR := 5;
+const int EXIT_1_DR := 6;
+const int PAUSE_DR := 7;
+const int EXIT_2_DR := 8;
+const int UPDATE_DR := 9;
+const int SELECT_IR_SCAN := 10;
+const int CAPTURE_IR := 11;
+const int SHIFT_IR := 12;
+const int EXIT_1_IR := 13;
+const int PAUSE_IR := 14;
+const int EXIT_2_IR := 15;
+const int UPDATE_IR := 16;
+
+function int init()
+{
+	var int i;
+	var int j;
+	var int rec;
+	var int r;
+
+	tap_state := jtag.$TEST_LOGIC_RESET;
+	jtag_id := -1;
+	jtag_vir_size := 0;
+
+	jtag.init_in(jtag.$TDO);
+	jtag.init_out(jtag.$TMS);
+	jtag.init_out(jtag.$TCK);
+	jtag.init_out(jtag.$TDI);
+
+	jtag.set_out(jtag.$TMS);
+	jtag.set_out(jtag.$TDI);
+	jtag.clear_out(jtag.$TCK);
+
+	jtag.run_idle();
+
+	if (jtag.check_status() == 0) {
+		jtag.load_ji(jtag.$USER1_VIR);
+		jtag.shift_dr();
+		jtag.read_tdo(64, 0, 0);
+		jtag.update_dr();
+		jtag.load_ji(jtag.$USER0_VDR);
+		rec := 0;
+		i := 0;
+		while (i < 8) {
+			jtag.shift_dr();
+			rec := std.slr(rec, 4);
+			r := jtag.read_tdo(4, 0, 0);
+			r := std.sll(r, 28);
+			rec := std.or(rec,  r);
+			jtag.update_dr();
+			jtag.run_idle();
+			i := i + 1;
+		}
+		jtag_id := -1;
+		jtag_last_vir := -1;
+		j := 0;
+		if (std.and(std.slr(rec, 8), 2047) == jtag.$VENDOR_ID) {
+			jtag_n_slaves := std.and(std.slr(rec, 19), 255);
+			jtag_slave_bits := 0;
+			while (std.sll(1, jtag_slave_bits)  < 
+				(jtag_n_slaves + 1)
+			      ) {
+				jtag_slave_bits := jtag_slave_bits + 1;
+			}
+			jtag_vir_size := std.and(rec, 255);
+			j := 0;
+			while (j < jtag_n_slaves) {
+				rec := 0;
+				i := 0;
+				while (i < 8) {
+					jtag.shift_dr();
+					rec := std.slr(rec, 4);
+					r := jtag.read_tdo(4, 0, 0);
+					r := std.sll(r, 28);
+					rec := std.or(rec,  r);
+					jtag.update_dr();
+					jtag.run_idle();
+					i := i + 1;
+				}
+				if (std.and(std.slr(rec, 19), 255) == 
+					jtag.$ID_VJTAG
+				   ) {
+					if (std.and(std.slr(rec, 8), 2047) 
+						== jtag.$VENDOR_ID
+					   ) {
+						jtag_id := j;
+						return 0;
+					}
+				}
+				j := j + 1;
+			}
+		}
+	}
+	return -1;
+}
+
+function void send(in int signal, in int data, in int clk)
+{
+	if (data != 0) {
+		jtag.set_out(signal);
+	} else {
+		jtag.clear_out(signal);
+	}
+	if (clk != 0) {
+		jtag.set_out(jtag.$TCK);
+		jtag.clear_out(jtag.$TCK);
+	}
+	return;
+}
+
+function void tap_update(in int tms)
+{
+	jtag.send(jtag.$TMS, tms, 1);
+
+	if (tap_state == jtag.$TEST_LOGIC_RESET) {
+		if (tms == 0) {
+			tap_state := jtag.$RUN_TEST_IDLE;
+		}
+	} else if (tap_state == jtag.$RUN_TEST_IDLE) {
+		if (tms == 1) {
+			tap_state := jtag.$SELECT_DR_SCAN;
+		}
+	} else if (tap_state == jtag.$SELECT_DR_SCAN) {
+		if (tms == 1) {
+			tap_state := jtag.$SELECT_IR_SCAN;
+		} else {
+			tap_state := jtag.$CAPTURE_DR;
+		}
+	} else if (tap_state == jtag.$CAPTURE_DR) {
+		if (tms == 1) {
+			tap_state := jtag.$EXIT_1_DR;
+		} else {
+			tap_state := jtag.$SHIFT_DR;
+		}
+	} else if (tap_state == jtag.$SHIFT_DR) {
+		if (tms == 1) {
+			tap_state := jtag.$EXIT_1_DR;
+		}
+	} else if (tap_state == jtag.$EXIT_1_DR) {
+		if (tms == 1) {
+			tap_state := jtag.$UPDATE_DR;
+		} else {
+			tap_state := jtag.$PAUSE_DR;
+		}
+	} else if (tap_state == jtag.$PAUSE_DR) {
+		if (tms == 1) {
+			tap_state := jtag.$EXIT_2_DR;
+		}
+	} else if (tap_state == jtag.$EXIT_2_DR) {
+		if (tms == 1) {
+			tap_state := jtag.$UPDATE_DR;
+		} else {
+			tap_state := jtag.$SHIFT_DR;
+		}
+	} else if (tap_state == jtag.$UPDATE_DR) {
+		if (tms == 1) {
+			tap_state := jtag.$SELECT_DR_SCAN;
+		} else {
+			tap_state := jtag.$RUN_TEST_IDLE;
+		}
+	} else if (tap_state == jtag.$SELECT_IR_SCAN) {
+		if (tms == 1) {
+			tap_state := jtag.$TEST_LOGIC_RESET;
+		} else {
+			tap_state := jtag.$CAPTURE_IR;
+		}
+	} else if (tap_state == jtag.$CAPTURE_IR) {
+		if (tms == 1) {
+			tap_state := jtag.$EXIT_1_IR;
+		} else {
+			tap_state := jtag.$SHIFT_IR;
+		}
+	} else if (tap_state == jtag.$SHIFT_IR) {
+		if (tms == 1) {
+			tap_state := jtag.$EXIT_1_IR;
+		}
+	} else if (tap_state == jtag.$EXIT_1_IR) {
+		if (tms == 1) {
+			tap_state := jtag.$UPDATE_IR;
+		} else {
+			tap_state := jtag.$PAUSE_IR;
+		}
+	} else if (tap_state == jtag.$PAUSE_IR) {
+		if (tms == 1) {
+			tap_state := jtag.$EXIT_2_IR;
+		}
+	} else if (tap_state == jtag.$EXIT_2_IR) {
+		if (tms == 1) {
+			tap_state := jtag.$UPDATE_IR;
+		} else {
+			tap_state := jtag.$SHIFT_IR;
+		}
+	} else if (tap_state == jtag.$UPDATE_IR) {
+		if (tms == 1) {
+			tap_state := jtag.$SELECT_DR_SCAN;
+		} else {
+			tap_state := jtag.$RUN_TEST_IDLE;
+		}
+	} else {
+		tap_state := jtag.$TEST_LOGIC_RESET;
+	}
+
+	return;
+}
+
+function int read_tdo(in int bit_count, in int data, in int inst)
+{
+	var int rec;
+	var int i;
+	var int in;
+	var int clk;
+
+	i := 0;
+	rec := 0;
+	while (i < bit_count) {
+		in := jtag.read_in(jtag.$TDO);
+		rec := std.or(rec, std.sll(in, i));	
+		if ((i == (bit_count - 1)) && inst != 0) {
+			clk := 0;
+		} else {
+			clk := 1;
+		}		
+		jtag.send(jtag.$TDI, std.and(data, 1), clk);
+		data := std.slr(data, 1);
+		i := i + 1;
+	}
+	return rec;
+}
+
+function void read_tdo_buf(in int bit_count, in bytes txbuf,
+	 in bytes rxbuf, in int inst)
+{
+	var int rec;
+	var int tdi;
+	var int tdo;
+	var int i;
+	var int charbit;
+	var int indata;
+	var int outdata;
+	var int iin;
+	var int iout;
+	var int r;
+	var int clk;
+
+	rec := 0;
+	tdi := 0;
+	tdo := 0;
+	charbit := 0;
+	indata := 0;
+	iin := 0;
+	iout := 0;
+	
+	i := 0;
+	while (i < bit_count) {
+		if (charbit == 0) {
+			if (txbuf != null) {
+				outdata := txbuf.get_at(iout);
+				iout := iout + 1;
+			} else {
+				outdata := -1;
+			}
+		}
+		r := jtag.read_in(jtag.$TDO);
+		indata := std.slr(indata, 1);
+		indata := std.or(indata, std.sll(r, 7));
+		if ((i == (bit_count - 1)) && inst != 0) {
+			clk := 0;
+		} else {
+			clk := 1;
+		}		
+		jtag.send(jtag.$TDI, std.and(outdata, 1), clk);
+		outdata := std.slr(outdata, 1);
+		charbit := std.and((charbit + 1), 7);
+		if (charbit == 0) {
+			if (rxbuf != null) {
+				rxbuf.set_at(iin, indata);
+				iin := iin + 1;
+				indata := 0;
+			}
+		}
+		i := i + 1;
+	}	
+	return;
+}
+
+function int update_dr()
+{
+	if (tap_state != jtag.$SHIFT_DR) {
+		return 1;
+	}
+	jtag.tap_update(1);	
+	jtag.tap_update(1);	
+	return 0;
+}
+
+function int shift_dr()
+{
+	if (tap_state != jtag.$UPDATE_DR && tap_state != jtag.$UPDATE_IR) {
+		if (tap_state != jtag.$TEST_LOGIC_RESET && 
+			tap_state != jtag.$RUN_TEST_IDLE)
+		{
+			return 1;
+		} else {
+			jtag.tap_update(0);	
+			jtag.tap_update(0);	
+			jtag.tap_update(1);	
+			jtag.tap_update(0);	
+			jtag.tap_update(0);	
+			return 0;
+		}
+	}
+	jtag.tap_update(1);	
+	jtag.tap_update(0);	
+	jtag.tap_update(0);	
+	return 0;
+}
+
+function void run_idle()
+{
+	var int i;
+	if (tap_state != jtag.$UPDATE_IR && tap_state != jtag.$UPDATE_DR) {
+		i := 0;
+		while (i < 5) {
+			jtag.tap_update(1);
+			i := i + 1;	
+		}
+	}
+	jtag.tap_update(0);	
+	return;
+}
+
+function int load_ji(in int action)
+{
+	var int i;
+	var int rec;
+
+	if (tap_state != jtag.$TEST_LOGIC_RESET && 
+		tap_state != jtag.$RUN_TEST_IDLE
+	   ) {
+		jtag.run_idle();
+	}
+	jtag.tap_update(0);	
+	jtag.tap_update(1);	
+	jtag.tap_update(1);	
+	jtag.tap_update(0);	
+	jtag.tap_update(0);	
+	rec := jtag.read_tdo(10, action, 1);
+	if (rec != 341) {
+		return -1;
+	}
+	jtag.tap_update(1);	
+	jtag.tap_update(1);	
+	return 0;
+}
+
+function int setup_chain(in int action)
+{
+	if (tap_state != jtag.$TEST_LOGIC_RESET && 
+		tap_state != jtag.$RUN_TEST_IDLE
+	   ) {
+		jtag.run_idle();
+	}
+
+	jtag.tap_update(0);	
+	jtag.tap_update(1);	
+	jtag.tap_update(1);	
+	jtag.tap_update(0);	
+	jtag.tap_update(0);	
+	jtag.read_tdo(10, action, 1);
+	jtag.tap_update(1);	
+	jtag.tap_update(1);	
+	return 0;
+}
+
+function int check_status()
+{
+	var int bit;
+	var int data;
+	var int jseq_max;
+	var int jseq_conf_done;
+	var int conf_done_bit;
+	var int r;
+
+	r := jtag.setup_chain(jtag.$CHECK_STATUS);
+	jtag.shift_dr();
+	jseq_max := 360;
+	jseq_conf_done := 224;
+	conf_done_bit := ((jseq_max - jseq_conf_done) * 3) + 1;
+	bit := 0;
+	while (bit < conf_done_bit) {
+		jtag.send(jtag.$TDI, 0, 1);
+		bit := bit + 1;
+	}
+	data := jtag.read_tdo(1, 0, 0);
+	jtag.update_dr();
+	jtag.run_idle();
+	if (data == 0) {
+		return 1;
+	}
+	return 0;
+}
+
+function int vir(in int instruction)
+{
+	var int ret;
+	var int code;
+
+	ret := 0;
+	if (jtag_last_vir != instruction) {
+		code := std.or(std.sll((jtag_id + 1), jtag_vir_size),  
+			instruction);
+		ret := jtag.load_ji(jtag.$USER1_VIR);
+		if (ret < 0) {
+			return ret;
+		}
+		jtag.shift_dr();
+		jtag.read_tdo(jtag_vir_size + jtag_slave_bits, code, 1);
+		jtag.update_dr();
+		jtag_last_vir := instruction;
+	}	
+	return ret;
+}
+
+function int write_buffer(in int address, in bytes data, in int len)
+{
+	var int ret;
+	var int a;
+
+	ret := jtag.vir(0);
+	if (ret < 0) {
+		return ret;
+	}
+	jtag.load_ji(jtag.$USER0_VDR);
+	jtag.shift_dr();
+	a := (address * 4) + 3;
+	jtag.read_tdo_buf(32, std.address_of(a), 0, 0);		
+	jtag.read_tdo_buf((32 * len) + 2, data, 0, 0);
+	return len;
+}
+
+function int mb_pin_set()
+{
+	var int rpc;
+	var int ret;
+	rpc := 0;
+	ret := jtag.write_buffer(jtag.$MB_BASE, std.address_of(rpc), 1);
+	if (ret != 1) {
+		return -1;
+	}
+	pin.mode(jtag.$MB_INT_PIN, pin.$OUTPUT);
+	digital.write(jtag.$MB_INT_PIN, digital.$LOW);
+	return 0;
+}
+
+function int mb_eve_send(in bytes data, in int len)
+{
+	var int start;
+	var int ret;
+	
+	ret := jtag.write_buffer(jtag.$MB_BASE, data, len);
+	if (ret != len) {
+		return -10;
+	}
+	digital.write(jtag.$MB_INT_PIN, digital.$HIGH);	
+	digital.write(jtag.$MB_INT_PIN, digital.$LOW);	
+	return 0;
+}
+
+} // class
+

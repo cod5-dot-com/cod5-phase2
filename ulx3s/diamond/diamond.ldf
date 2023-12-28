@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<BaliProject version="3.2" title="diam" device="LFE5U-12F-6BG381I" default_implementation="impl1">
+    <Options/>
+    <Implementation title="impl1" dir="impl1" description="impl1" synthesis="lse" default_strategy="Strategy1">
+        <Options def_top="diff_out" top="cod5_top"/>
+        <Source name="../src/cod5_top.v" type="Verilog" type_short="Verilog">
+            <Options top_module="cod5_top"/>
+        </Source>
+        <Source name="../../common/src/async_fifo.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/c5_adder.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/c5_alu.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/c5_bus_mux.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/c5_control.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/c5_cpu.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/c5_inc.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/c5_increment.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/c5_mem_ctrl.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/c5_mult.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/c5_negate.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/c5_pc_next.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/c5_pipeline.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/c5_ram.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/c5_reg_bank.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/c5_shifter.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/display.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/sdcard.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/soc.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/spi_master.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/tmds_encoder.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../../common/src/uart.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../src/sys_pll.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../src/gpdi.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../src/diff_out.v" type="Verilog" type_short="Verilog">
+            <Options/>
+        </Source>
+        <Source name="../src/ulx3s_v20.lpf" type="Logic Preference" type_short="LPF">
+            <Options/>
+        </Source>
+    </Implementation>
+    <Strategy name="Strategy1" file="diam1.sty"/>
+</BaliProject>

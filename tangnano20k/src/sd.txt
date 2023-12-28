@@ -1,0 +1,42 @@
+C.2 SPI Mode Command List
+Supported
+Commands Abbreviation SDMEM
+System
+SDIO
+System Comments
+CMD0 GO_IDLE_STATE Mandatory Mandatory Used to change from SD to SPI mode
+CMD1 SEND_OP_COND Mandatory
+CMD5 IO_SEND_OP_COND Mandatory
+CMD6 SWITCH_FUNC Mandatory1 Added in Part 1 v1.10
+CMD9 SEND_CSD Mandatory CSD not supported by SDIO
+CMD10 SEND_CID Mandatory CID not supported by SDIO
+CMD12 STOP_TRANSMISSION Mandatory
+CMD13 SEND_STATUS Mandatory Card Status includes only SDMEM information.
+CMD16 SET_BLOCKLEN Mandatory
+CMD17 READ_SINGLE_BLOCK Mandatory .
+CMD18 READ_MULTIPLE_BLOCK Mandatory
+CMD24 WRITE_BLOCK Mandatory
+CMD25 WRITE_MULTIPLE_BLOCK Mandatory
+CMD27 PROGRAM_CSD Mandatory CSD not supported by SDIO.
+CMD28 SET_WRITE_PROT Optional
+CMD29 CLR_WRITE_PROT Optional
+CMD30 SEND_WRITE_PROT Optional
+CMD32 ERASE_WR_BLK_START Mandatory
+CMD33 ERASE_WR_BLK_END Mandatory
+CMD38 ERASE Mandatory
+CMD42 LOCK_UNLOCK Optional
+CMD52 IO_RW_DIRECT Mandatory
+CMD53 IO_RW_EXTENDED Mandatory Block mode is optional
+CMD55 APP_CMD Mandatory
+CMD56 GEN_CMD Mandatory
+CMD58 READ_OCR Mandatory
+CMD59 CRC_ON_OFF Mandatory Mandatory
+ACMD13 SD_STATUS Mandatory
+ACMD22 SEND_NUM_WR_BLOCKS Mandatory
+ACMD23 SET_WR_BLK_ERASE_COUNT Mandatory
+ACMD41 SD_APP_OP_COND Mandatory
+ACMD42 SET_CLR_CARD_DETECT Mandatory
+ACMD51 SEND_SCR Mandatory SCR includes only SD-MEM information.
+Table C- 2 : SPI Mode Command List
+1 For Part 1 v1.10 or higher Memory or Combo Card
+

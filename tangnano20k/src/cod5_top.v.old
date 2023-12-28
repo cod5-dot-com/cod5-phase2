@@ -1,0 +1,460 @@
+//              
+//          MMXXIII September 27 PUBLIC DOMAIN by O'ksi'D
+//
+//        The authors disclaim copyright to this software.
+//
+// Anyone is free to copy, modify, publish, use, compile, sell, or
+// distribute this software, either in source code form or as a
+// compiled binary, for any purpose, commercial or non-commercial,
+// and by any means.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES 
+// OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT OF ANY PATENT, COPYRIGHT, TRADE SECRET OR OTHER
+// PROPRIETARY RIGHT.  IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR 
+// ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF 
+// CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION 
+// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+module cod5_top #(
+	parameter nb_leds = 6
+)
+(
+    input             I_clk           , //27Mhz
+    input             I_rst_n         ,
+    output            O_tmds_clk_p    ,
+    output            O_tmds_clk_n    ,
+    output     [2:0]  O_tmds_data_p   ,//{r,g,b}
+    output     [2:0]  O_tmds_data_n   ,
+
+   
+    // "Magic" port names that the gowin compiler connects to the on-chip SDRAM
+    output O_sdram_clk,
+    output O_sdram_cke,
+    output O_sdram_cs_n,            // chip select
+    output O_sdram_cas_n,           // columns address select
+    output O_sdram_ras_n,           // row address select
+    output O_sdram_wen_n,           // write enable
+    inout [31:0] IO_sdram_dq,       // 32 bit bidirectional data bus
+    output [10:0] O_sdram_addr,     // 11 bit multiplexed address bus
+    output [1:0] O_sdram_ba,        // two banks
+    output [3:0] O_sdram_dqm,      // 32/4
+
+    output O_sdcard_clk,
+    output O_sdcard_mosi,
+    inout I_sdcard_miso,
+    output O_sdcard_cs_n,
+    inout IO_sdcard_dat1,
+    inout IO_sdcard_dat2,
+
+    input I_uart_rx,
+    output O_uart_tx,
+
+    output [nb_leds-1:0] O_leds
+);
+
+wire clk;
+
+wire plasma_interrupt;
+wire plasma_mem_pause;
+wire [31:2] plasma_address_next;
+wire [3:0] plasma_byte_we_next;
+wire [31:2] plasma_address;
+wire [3:0] plasma_byte_we;
+wire [31:0] plasma_data_w;
+wire [31:0] plasma_data_r;
+
+reg [31:0] data_bus;
+
+wire enable_ram;
+wire [31:0] data_read_ram;
+
+assign plasma_interrupt = O_leds[2];
+assign plasma_mem_pause = O_leds[1];
+
+c5_cpu plasma (
+	.I_clk(clk), 
+	.I_rst_n(I_rst_n),
+
+	.I_intr_in(plasma_interrupt),
+
+        .O_address_next(plasma_address_next),
+        .O_byte_we_next(plasma_byte_we_next),
+
+        .O_address(plasma_address),
+        .O_byte_we(plasma_byte_we),
+        .O_data_w(plasma_data_w),
+        .I_data_r(plasma_data_r),
+        .I_mem_pause(plasma_mem_pause)
+);
+
+
+c5_ram ram1 (
+	.I_clk(clk), 
+	.I_enable(enable_ram),
+        .I_address(plasma_address),
+        .I_write_byte_enable(plasma_byte_we),
+        .I_data_write(plasma_data_w),
+        .O_data_read(data_read_ram)
+
+);
+
+assign plasma_data_r = data_bus;
+assign enable_ram = (plasma_address[31:2] == 0);
+assign O_leds = plasma_data_r[5:0];
+always @(*) begin
+	if (enable_ram) begin
+		data_bus <= data_read_ram;
+	end else begin
+		data_bus <= 32'd0;
+	end
+end
+
+assign IO_sdcard_dat1 = I_rst_n ? 1'b0 : 1'bz;
+assign IO_sdcard_dat2 = I_rst_n ? 1'b0 : 1'bz;
+assign I_sdcard_miso = I_rst_n ? 1'bz : 1'b0;
+
+// It look like 60MHz is the maximal GoWIN GW2AR-LV18-QN88C8-I7 SDRAM frequency
+localparam FREQ=48_000_000; // 48MHz same as the mkr Vidor 4000
+
+wire clk_sdram;
+
+Gowin_rPLL pll(
+    .clkout(clk),         // Main clock
+    .clkoutp(clk_sdram),  // Phase shifted clock for SDRAM
+    .clkin(I_clk)         // 27Mhz system clock
+);
+
+reg rd = 0;
+reg wr = 0;
+reg refresh = 0;
+reg [22:0] addr = 0;
+reg [31:0] din = 0;
+wire [31:0] dout;
+wire data_ready;
+wire busy;
+reg start;
+
+
+sdram #(.FREQ(FREQ)) sdram_inst (
+	.I_clk(clk), 
+	.I_clk_sdram(clk_sdram), 
+	.I_rst_n(I_rst_n),
+	.I_cmd_read(rd), 
+	.I_cmd_write(wr), 
+	.I_cmd_refresh(refresh),
+	.I_address(addr), 
+	.I_data_in(din), 
+	.O_data_out(dout), 
+	.O_data_ready(data_ready), 
+	.O_busy(busy),
+
+	.IO_ram_DQ(IO_sdram_dq),    // 32 bit bidirectional data bus
+	.O_ram_A(O_sdram_addr),     // 11 bit multiplexed address bus
+	.O_ram_BA(O_sdram_ba),      // 4 banks
+	.O_ram_nCS(O_sdram_cs_n),   // a single chip select
+	.O_ram_nWE(O_sdram_wen_n),  // write enable
+	.O_ram_nRAS(O_sdram_ras_n), // row address select
+	.O_ram_nCAS(O_sdram_cas_n), // columns address select
+	.O_ram_CLK(O_sdram_clk),
+	.O_ram_CKE(O_sdram_cke),
+	.O_ram_DQM(O_sdram_dqm)
+);
+
+localparam REFRESH_COUNT=FREQ/1000*15/1000;     // 15us refresh
+reg refresh_needed;
+reg refresh_executed;                           // pulse from main FSM
+reg [15:0] refresh_time;
+wire [16:0] refresh_time1 = refresh_time == (REFRESH_COUNT*2-2) ? (REFRESH_COUNT*2-2) : (refresh_time + 1'b1);
+
+always @(posedge clk) begin
+    if (~I_rst_n) begin
+        refresh_time <= 0;
+        refresh_needed <= 0;
+    end else begin
+
+    	refresh_time <= refresh_time1[15:0];
+    	if (refresh_time == REFRESH_COUNT) 
+        	refresh_needed <= 1;
+    	if (refresh_executed) begin
+        	refresh_time <= refresh_time - REFRESH_COUNT[15:0];
+        	refresh_needed <= 0;
+    	end
+    end
+end
+
+always @(*) begin
+   // led = ~0;
+end
+
+wire [31:0] dpy_data;
+wire dpy_read;
+wire dpy_empty;
+wire dpy_pix_clk;
+wire dpy_sync;
+
+display dsp (
+    .I_clk(I_clk), 
+    .I_rst_n(I_rst_n),
+    .O_pix_clk(dpy_pix_clk),
+    .O_read(dpy_read),
+    .O_sync(dpy_sync),
+    .I_empty(dpy_empty),
+    .I_data(dpy_data),
+    .O_tmds_clk_p(O_tmds_clk_p),
+    .O_tmds_clk_n(O_tmds_clk_n),
+    .O_tmds_data_p(O_tmds_data_p),
+    .O_tmds_data_n(O_tmds_data_n)
+);
+
+reg gfx_write;
+reg [31:0] gfx_data;
+wire gfx_full;
+wire gfx_half_full;
+
+async_fifo #(
+	.DATA_WIDTH(32),
+	.POINTER_WIDTH(5)) 
+fifo_inst (
+	.I_write_clk(clk),
+    	.I_write_rst_n(I_rst_n & !dpy_sync),
+    	.I_cmd_write(gfx_write),
+    	.I_write_data(gfx_data),
+    	.O_write_full(gfx_full),
+    	.O_half_full(gfx_half_full),
+
+	.I_read_clk(dpy_pix_clk),
+    	.I_read_rst_n(I_rst_n & !dpy_sync),
+    	.I_cmd_read(dpy_read),
+    	.O_read_data(dpy_data), 
+    	.O_read_empty(dpy_empty) 
+);
+
+
+//////////////////////////////////
+
+reg uart_read;
+reg uart_write;
+wire [7:0] uart_in;
+reg [7:0] uart_out;
+reg [7:0] uart_buf;
+
+wire uart_busy;
+wire uart_ready;
+
+uart uart (
+	.I_clk(clk),
+	.I_rst_n(I_rst_n),
+	.I_cmd_read(uart_read),
+	.I_cmd_write(uart_write),
+	.I_in_pin(I_uart_rx),
+	.O_out_pin(O_uart_tx),
+	.I_data_out(uart_out),
+	.O_data_in(uart_in),
+	.O_busy_write(uart_busy),
+	.O_data_ready(uart_ready)
+);
+
+always @(posedge clk or negedge I_rst_n) 
+begin
+	if (!I_rst_n) begin
+		uart_read <= 0;
+		uart_write <= 0;
+	//	O_leds <= ~0;
+		uart_buf <= 0;
+		uart_out <= 0;
+		sdcard_cmd_init <= 0;
+	end else begin
+		sdcard_cmd_init <= 0;
+		uart_read <= 0;
+		uart_write <= 0;
+	//	O_leds <= ~uart_in[nb_leds-1:0];
+		//O_leds <= ~clock[nb_leds-1:0];
+		if (sdcard_data_ready && !uart_busy) begin
+			uart_write <= 1'b1;
+			uart_out <= sdcard_receive[7:0];	
+		end else if (uart_ready && !uart_busy) begin
+			uart_read <= 1'b1;	
+			//uart_write <= 1'b1;
+			uart_buf <= uart_in;	
+			uart_out <= uart_in;	
+			sdcard_cmd_init <= 1;
+		end else begin
+			if (run_cnt == 100000 && !uart_busy) begin
+				//uart_write <= 1'b1;
+				//uart_out <= 8'd65;	
+			end
+		end
+	end
+end
+
+//////////////////////////////////
+
+reg sdcard_cmd_init;
+
+reg sdcard_write;
+reg sdcard_read;
+reg  sdcard_init;
+reg [31:0] sdcard_send;
+wire [31:0] sdcard_receive;
+wire sdcard_busy;
+wire sdcard_data_ready;
+
+sdcard #(.FREQ(FREQ)) sdcard (
+	.I_clk(clk),
+	.I_rst_n(I_rst_n),
+
+    	.O_sck(O_sdcard_clk),
+    	.O_mosi(O_sdcard_mosi),
+        .I_miso(I_sdcard_miso),
+    	.O_cs_n(O_sdcard_cs_n),
+
+	.I_cmd_write(sdcard_write),
+	.I_cmd_read(sdcard_read),
+	.I_cmd_init(sdcard_init),
+
+	.I_data_out(sdcard_send),
+	.O_data_in(sdcard_receive),
+	.O_busy_write(sdcard_busy),
+	.O_data_ready(sdcard_data_ready)
+	
+);
+
+always @(posedge clk or negedge I_rst_n) 
+begin
+	if (!I_rst_n) begin
+		sdcard_write <= 0;
+		sdcard_read <= 0;
+		sdcard_init <= 0;
+		sdcard_send <= 0;
+	end else begin
+		sdcard_write <= 0;
+		sdcard_read <= 0;
+		sdcard_init <= 0;
+		if (sdcard_cmd_init) begin
+			sdcard_init <= 1;
+		end else if (sdcard_data_ready && !uart_busy) begin
+			sdcard_read <= 1;
+		end
+	end
+end
+
+//////////////////////////////////
+localparam STATE_IDLE = 5'd0;
+localparam STATE_FILL_GFX_FIFO = 5'd1;
+localparam STATE_WRITE_MEM = 5'd2;
+reg [4:0] state;
+reg [9:0] x;
+reg [9:0] y;
+reg [22:0] tmp;
+
+always @(posedge clk or negedge I_rst_n) 
+begin
+	if (!I_rst_n) begin
+		state <= STATE_IDLE;
+	    	wr <= 0; 
+		rd <= 0; 
+		refresh <= 0; 
+		refresh_executed <= 0;
+		gfx_write <= 0;
+		x <= 0;
+		y <= 0;
+		tmp <= 0;
+	end else begin
+	    	wr <= 0; 
+		rd <= 0; 
+		refresh <= 0; 
+		refresh_executed <= 0;
+		gfx_write <= 0;
+		if (dpy_sync) begin
+			x <= 0;
+			y <= 0;
+		end
+		case (state)
+		STATE_IDLE: begin
+                    	if (refresh_needed) begin
+				if (!busy) begin
+                        		refresh <= 1'b1;
+                        		refresh_executed <= 1'b1;
+				end
+			end else if (!gfx_full) begin
+				if (!wr && !busy && !dpy_sync) begin
+					state <= STATE_FILL_GFX_FIFO;
+					rd <= 1'b1;
+					addr <= (x/8) + y * (640/8);
+				end
+			end else if (!rd) begin
+				if (!rd && !busy && tmp < (640 * 480 / 2)) begin
+					state <= STATE_WRITE_MEM;
+					wr <= 1'b1;
+					if (tmp < 15120) 
+						din <= 32'h01234567;
+					else 
+			 			din <= 32'h15111111;
+					din <= {
+						tmp[14:11], tmp[14:11], 
+						tmp[14:11], tmp[14:11], 
+						tmp[14:11], tmp[14:11], 
+						tmp[14:11], tmp[14:11] 
+						};
+			 		//din <= tmp; // FIXME
+					addr <= tmp[22:0];
+					tmp <= tmp + 4'd4;
+				end
+			end
+		end
+		STATE_FILL_GFX_FIFO: begin
+			if (data_ready && !dpy_sync) begin
+				gfx_write <= 1'b1;
+				if (x >= 632) begin
+					if (y >= 479) begin
+						y <= 0;
+					end else begin
+						y <= y + 10'd1;
+					end
+					x <= 0;
+				end else begin
+					x <= x + 10'd8;
+				end
+				//if (y >=1 && y <40 && x >= 5 && x < 600) begin
+			 	//	gfx_data <= 32'h11111111;
+				//end
+				//if (y == 240 && x == 0) begin
+			 	//	gfx_data <= 32'h11111161;
+				//end
+				gfx_data <= dout;
+				state <= STATE_IDLE;
+			end
+		end
+		STATE_WRITE_MEM: begin
+			if (!wr && !busy) begin
+				state <= STATE_IDLE;
+			end
+		end
+		endcase
+	end
+end
+
+///////////////////////////////////////////////////////
+// Heart beat
+reg  [31:0] run_cnt;
+reg  [16:0] clock;
+
+always @(posedge clk or negedge I_rst_n) 
+begin
+    if(!I_rst_n) begin
+        run_cnt <= 32'd0;
+	clock <= 0;
+    end else if(run_cnt >= FREQ) begin
+        run_cnt <= 32'd0;
+	clock <= clock + 1'b1;
+    end else begin
+        run_cnt <= run_cnt + 1'b1;
+	//O_leds <= ~clock[nb_leds-1:0];
+    end
+end
+
+
+endmodule
